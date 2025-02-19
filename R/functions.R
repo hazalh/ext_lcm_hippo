@@ -8,12 +8,13 @@ create_boxplot <- function(df, metadata) {
 
 
     df_long <- df %>%
-        tidyr::pivot_longer(cols = starts_with("S"),
+      tibble::rownames_to_column(var = "gene") %>%
+        tidyr::pivot_longer(cols = matches("^[A-O]\\d$"),
                             values_to = "log2_intensities",
                             names_to = "sample_id") %>%
         dplyr::inner_join(metadata) %>%
         mutate(sample_id = factor(sample_id, levels = unique(sample_id[order(area)]))) %>%
-        dplyr::select(sample_id, log2_intensities, intervention, area)
+        dplyr::select(sample_id, gene, log2_intensities, group, area)
 
     # Generate the boxplot
     p <- ggplot(df_long, aes(x = sample_id, y = log2_intensities, fill = area)) +
@@ -37,25 +38,25 @@ calculate_venn_counts <- function(df1, df2, df3, name1 = "Set1", name2 = "Set2",
   set1 <- rownames(df1)
   set2 <- rownames(df2)
   set3 <- rownames(df3)
-  
+
   # Compute intersections
   n_set1_set2 <- length(intersect(set1, set2))
   n_set1_set3 <- length(intersect(set1, set3))
   n_set2_set3 <- length(intersect(set2, set3))
-  
+
   # Compute triple intersection
   n_set1_set2_set3 <- length(intersect(intersect(set1, set2), set3))
-  
+
   # Adjust for double counting
   n_set1_set2_only <- n_set1_set2 - n_set1_set2_set3
   n_set1_set3_only <- n_set1_set3 - n_set1_set2_set3
   n_set2_set3_only <- n_set2_set3 - n_set1_set2_set3
-  
+
   # Compute exclusive elements
   n_set1_only <- length(set1) - (n_set1_set2_only + n_set1_set3_only + n_set1_set2_set3)
   n_set2_only <- length(set2) - (n_set1_set2_only + n_set2_set3_only + n_set1_set2_set3)
   n_set3_only <- length(set3) - (n_set1_set3_only + n_set2_set3_only + n_set1_set2_set3)
-  
+
   # Return named vector
   return(setNames(c(
     n_set1_only, n_set2_only, n_set3_only,
@@ -91,8 +92,7 @@ plot_hipp_proteins <- function(df, metadata,
         tidyr::pivot_longer(cols = !proteins,
                             values_to = "log2_intensities",
                             names_to = "sample_id") %>%
-        #dplyr::inner_join(metadata_m) %>%
-        dplyr::inner_join(metadata_f) %>%
+        dplyr::inner_join(metadata) %>%
         mutate(proteins_by_tissue = as.factor(case_when(
             proteins %in% areaspecific_protein$pyramidal ~ "pyramidal proteins",
             proteins %in% areaspecific_protein$mossy ~ "mossy proteins",
@@ -101,9 +101,9 @@ plot_hipp_proteins <- function(df, metadata,
             TRUE ~ "Other"
         ))) %>%
         mutate(proteins = factor(proteins, levels = unique(proteins[order(proteins_by_tissue)]))) %>%
-        dplyr::select(proteins, sample_id, log2_intensities, area, intervention, proteins_by_tissue)
+        dplyr::select(proteins, sample_id, log2_intensities, area, group, proteins_by_tissue)
 
- 
+
     # plot
     p <- ggplot(df_long, aes(x = area, y = log2_intensities, fill = area)) +
         geom_violin(trim = FALSE) +  # Set trim to FALSE to display the entire violin plot
@@ -124,117 +124,69 @@ plot_hipp_proteins <- function(df, metadata,
 # mds plot ----------------------------------------------------------------
 
 create_mds_plots <- function(mds_data, metadata) {
-  metadata_variables <- c("area", "intervention", "batch", "termination_date","cryo_date", "lcm_date",
-                          "duration_frozen_tissue", "duration_frozen_section", "duration_frozen_postlcm"
-  )
-  
-  # Define the color palette for the area variable
-  area_colors <- c(
-    "CA1" = "#fa7876",
-    "CA3" = "#edd9a3",
-    "DG" = "#cc79a7")
-  
-  # Define the shapes
-  shape_annotations <- list(
-    "intervention" = as.factor(c("FFMD" = 21, "LFD" = 22)),
-    "batch" = as.factor(c("1" = 23, "3" = 24)),
-    "termination_date" = as.factor(c("2024-04-19", "2024-04-25", "2024-04-26")),
-    "cryo_date" = as.factor(c("2024-06-12" = 0, "2024-06-13" = 15, "2024-06-14" = 2)),
-    "lcm_date" = as.factor(c("2024-06-23" = 0, "2024-06-26" = 1, "2024-06-24" = 2, "2024-07-10" = 3,
-                             "2024-07-14" = 4, "2024-07-16" = 5, "2024-07-17" = 6, "2024-07-29" = 7)),
-    "duration_frozen_tissue" = as.factor(c("47" = 0, "48" = 1, "50" = 2, "54" = 3, "55" = 4)),
-    "duration_frozen_section" = as.factor(c("10" = 0, "14" = 1, "15" = 2, "27" = 3, "31" = 4,
-                                            "32" = 5, "34" = 6, "35" = 7, "46" = 8)),
-    "duration_frozen_postlcm" = as.factor(c("135" = 0, "147" = 1, "148" = 2, "150" = 3, "154" = 4,
-                                            "167" = 5, "168" = 6, "171" = 7)))
-  
-  
-  
-  plot_data_area <- mds_data[, c("dim1", "dim2", "area")]
-  
-  area_plot <- ggplot(plot_data_area,
-                      aes(x = dim1, y = dim2, colour = area)) +
-    geom_point(size = 4) +
-    labs(title = "df_fz_diann__area", colour = "area") +
-    theme_minimal() +
-    scale_colour_manual(values = area_colors)
-  
-  # Save the area plot
-  ggsave(filename = "doc/df_fz_diann_mds_dim1_dim2.pdf", plot = area_plot, width = 6, height = 6, units = "in", dpi = 300)
-  print(area_plot)
-  
-  # Generate plots for each metadata variable with area as fill and variable as shape
-  for (variable in metadata_variables) {
-    plot_data <- mds_data[, c("dim1", "dim2", "area", variable)]
-    
-    plot <- ggplot(plot_data,
-                   aes(x = dim1, y = dim2, colour = area, shape = as.factor(mds_data[[variable]]))) +
-      geom_point(size = 4) +
-      labs(title = paste("df_fz_diann_", variable), colour = "area", shape = variable) +
-      theme_minimal() +
-      scale_colour_manual(values = area_colors)
-    
-    # Apply shape mapping for the current variable
-    if (variable %in% names(shape_annotations)) {
-      plot <- plot + scale_shape_manual(values = shape_annotations[[variable]])
-    }
-    
-    # Construct the file path and save the plot
-    filename <- file.path("doc/", paste0("df_fz_diann_mds_dim1_dim2_", variable, ".pdf"))
-    ggsave(filename = filename, plot = plot, width = 6, height = 6, units = "in", dpi = 300)
-    print(plot)
-  }
-}
+  metadata_variables <- c("area", "group", "termination_date", "termination_batch", "sampleprep_date",
+                          "sampleprep_batch","cryo_date", "lcm_date",
+                          "duration_frozen_tissue", "duration_frozen_lcmtissue")
 
-## female 
-create_mds_plots_fem <- function(mds_data, metadata) {
-  metadata_variables <- c("area", "intervention", "termination_date")
-  
   # Define the color palette for the area variable
   area_colors <- c(
     "CA1" = "#fa7876",
     "CA3" = "#edd9a3",
     "DG" = "#cc79a7")
-  
+
   # Define the shapes
   shape_annotations <- list(
-    "intervention" = as.factor(c("FFMD" = 21, "LFD" = 22)),
-    "termination_date" = as.factor(c("2024-10-19", "2024-10-20")),
+    "group" = c("ext" = 21, "s" = 22),
+    "termination_date" = c("2022-01-24" = 21, "2022-01-25" = 22, "2022-01-27" = 23, "2022-01-28" = 24),
+    "termination_batch" = c("1" = 21, "2" = 22),
+    "sampleprep_date" = c("2023-09-25" = 21, "2023-09-28" = 22),
+    "sampleprep_batch" = c("1" = 21, "2" = 22, "3" = 23),
+    "cryo_date" = c("2023-04-28" = 21, "2023-05-03" = 0, "2023-05-08" = 23, "2023-05-10" = 24,
+                              "2023-05-16" = 25, "2023-05-22" = 9, "2023-05-23" = 10, "2023-05-24" = 11,
+                              "2023-05-30" = 12, "2023-05-31" =13),
+    "lcm_date" = c("2023-05-05" = 21, "2023-05-11" = 0, "2023-05-12" = 23, "2023-05-15" = 24,
+                  "2023-05-30" = 25, "2023-06-01" = 9, "2023-06-02" = 10, "2023-06-07" = 11,
+                  "2023-06-08" = 12),
+    "duration_frozen_tissue" = c("1" = 21,  "2" = 0,  "7" = 23, "8" = 24,  "9" = 25,  "10" = 9,
+                                 "11" = 10, "12" = 11, "14" = 12, "15" = 13, "16" = 14, "20" = 15),
+    "duration_frozen_lcmtissue" = c("110" = 0, "112" = 1, "115" = 2, "116" = 3, "118" = 4,
+                                  "119" = 5, "121" = 6, "133" = 7, "136" = 8, "137" = 9,
+                                  "139" = 10, "146" = 11)
     )
-  
-  
-  
+
+
+
   plot_data_area <- mds_data[, c("dim1", "dim2", "area")]
-  
+
   area_plot <- ggplot(plot_data_area,
                       aes(x = dim1, y = dim2, colour = area)) +
     geom_point(size = 4) +
-    labs(title = "diann_df_fem_cleaned_fz__area", colour = "area") +
+    labs(title = "df_fz_area", colour = "area") +
     theme_minimal() +
     scale_colour_manual(values = area_colors)
-  
+
   # Save the area plot
-  ggsave(filename = "doc/female/diann_df_fem_cleaned_fz_mds_dim1_dim2.pdf", plot = area_plot, width = 6, height = 6, units = "in", dpi = 300)
+  ggsave(filename = "docs/df_fz_mds_dim1_dim2.pdf", plot = area_plot, width = 6, height = 6, units = "in", dpi = 300)
   print(area_plot)
-  
+
   # Generate plots for each metadata variable with area as fill and variable as shape
   for (variable in metadata_variables) {
     plot_data <- mds_data[, c("dim1", "dim2", "area", variable)]
-    
+
     plot <- ggplot(plot_data,
                    aes(x = dim1, y = dim2, colour = area, shape = as.factor(mds_data[[variable]]))) +
       geom_point(size = 4) +
-      labs(title = paste("diann_df_fem_cleaned_fz", variable), colour = "area", shape = variable) +
+      labs(title = paste("df_fz_", variable), colour = "area", shape = variable) +
       theme_minimal() +
       scale_colour_manual(values = area_colors)
-    
+
     # Apply shape mapping for the current variable
-    if (variable %in% names(shape_annotations)) {
+    if (variable %in% names(shape_annotations) && !is.null(shape_annotations[[variable]])) {
       plot <- plot + scale_shape_manual(values = shape_annotations[[variable]])
     }
-    
+
     # Construct the file path and save the plot
-    filename <- file.path("doc/female", paste0("diann_df_fem_cleaned_fz_dim1_dim2_", variable, ".pdf"))
+    filename <- file.path("docs/", paste0("df_fz_mds_dim1_dim2_", variable, ".pdf"))
     ggsave(filename = filename, plot = plot, width = 6, height = 6, units = "in", dpi = 300)
     print(plot)
   }
@@ -247,13 +199,13 @@ create_mds_plots_bc <- function(mds_data, metadata) {
   metadata_variables <- c("area", "intervention", "batch", "cryo_date", "lcm_date",
                           "duration_frozen_tissue", "duration_frozen_section", "duration_frozen_postlcm"
   )
-  
+
   # Define the color palette for the area variable
   area_colors <- c(
     "CA1" = "#fa7876",
     "CA3" = "#edd9a3",
     "DG" = "#cc79a7")
-  
+
   # Define the shapes
   shape_annotations <- list(
     "intervention" = as.factor(c("FFMD" = 21, "LFD" = 22)),
@@ -266,38 +218,38 @@ create_mds_plots_bc <- function(mds_data, metadata) {
                                             "32" = 5, "34" = 6, "35" = 7, "46" = 8)),
     "duration_frozen_postlcm" = as.factor(c("135" = 0, "147" = 1, "148" = 2, "150" = 3, "154" = 4,
                                             "167" = 5, "168" = 6, "171" = 7)))
-  
-  
-  
+
+
+
   plot_data_area <- mds_data[, c("dim1", "dim2", "area")]
-  
+
   area_plot <- ggplot(plot_data_area,
                       aes(x = dim1, y = dim2, colour = area)) +
     geom_point(size = 4) +
     labs(title = "df_fz_diann_batchcorr__area", colour = "area") +
     theme_minimal() +
     scale_colour_manual(values = area_colors)
-  
+
   # Save the area plot
   ggsave(filename = "doc/df_fz_mds_dim1_dim2_diann_batchcorr.pdf", plot = area_plot, width = 6, height = 6, units = "in", dpi = 300)
   print(area_plot)
-  
+
   # Generate plots for each metadata variable with area as fill and variable as shape
   for (variable in metadata_variables) {
     plot_data <- mds_data[, c("dim1", "dim2", "area", variable)]
-    
+
     plot <- ggplot(plot_data,
                    aes(x = dim1, y = dim2, colour = area, shape = as.factor(mds_data[[variable]]))) +
       geom_point(size = 4) +
       labs(title = paste("df_fz_bc", variable), colour = "area", shape = variable) +
       theme_minimal() +
       scale_colour_manual(values = area_colors)
-    
+
     # Apply shape mapping for the current variable
     if (variable %in% names(shape_annotations)) {
       plot <- plot + scale_shape_manual(values = shape_annotations[[variable]])
     }
-    
+
     # Construct the file path and save the plot
     filename <- file.path("doc", paste0("df_fz_mds_dim1_dim2_diann_batchcorr", variable, ".pdf"))
     ggsave(filename = filename, plot = plot, width = 6, height = 6, units = "in", dpi = 300)
@@ -307,13 +259,13 @@ create_mds_plots_bc <- function(mds_data, metadata) {
 
 
 # mds plot 2 WORK ON HERE--------------------------------------------------------------
-create_mds_plots2 <- function(data, metadata, area_label, 
-                              dim_x = "dim1", dim_y = "dim2", 
-                              color_by = "area", shape_by = "batch", 
+create_mds_plots2 <- function(data, metadata, area_label,
+                              dim_x = "dim1", dim_y = "dim2",
+                              color_by = "area", shape_by = "batch",
                               title = "MDS Plot") {
   # Perform MDS using plotMDS
   mds_data <- plotMDS(data, ndim = 4, plot = FALSE)$cmdscale.out
-  
+
   # Combine MDS results with metadata
   mds_coords <- data.frame(
     mds_data,
@@ -322,19 +274,19 @@ create_mds_plots2 <- function(data, metadata, area_label,
     intervention = metadata$intervention,
     batch = metadata$batch
   )
-  
+
   # Rename MDS dimensions
   colnames(mds_coords)[1:4] <- c("dim1", "dim2", "dim3", "dim4")
-  
+
   # Add area label
   mds_coords$area_label <- area_label
-  
+
   # Convert column names to symbols for tidy evaluation
   dim_x_sym <- sym(dim_x)
   dim_y_sym <- sym(dim_y)
   color_by_sym <- sym(color_by)
   shape_by_sym <- sym(shape_by)
-  
+
   # Plot MDS
   plot <- ggplot(mds_coords, aes(x = !!dim_x_sym, y = !!dim_y_sym, color = !!color_by_sym, shape = !!shape_by_sym)) +
     geom_point(size = 4) +
@@ -346,7 +298,7 @@ create_mds_plots2 <- function(data, metadata, area_label,
       legend.title = element_text(size = 12),
       legend.text = element_text(size = 10)
     )
-  
+
   return(plot)
 }
 
@@ -355,7 +307,7 @@ create_mds_plots2 <- function(data, metadata, area_label,
 process_mds <- function(data, metadata, area_label) {
   # Perform MDS
   mds_data <- cmdscale(dist(t(data)), k = 4)
-  
+
   # Combine MDS results with metadata
   mds_coords <- data.frame(
     mds_data,
@@ -364,13 +316,13 @@ process_mds <- function(data, metadata, area_label) {
     intervention = metadata$intervention,
     batch = metadata$batch
   )
-  
+
   # Rename MDS dimensions
   colnames(mds_coords)[1:4] <- c("dim1", "dim2", "dim3", "dim4")
-  
+
   # Add a label for the area if needed
   mds_coords$area_label <- area_label
-  
+
   return(mds_coords)
 }
 
@@ -393,7 +345,7 @@ plot_mds <- function(mds_data, dim_x, dim_y, color_by = "area", shape_by = "batc
 
 create_mds_plots2 <- function(df, metadata, dimensions_list, output_dir = "doc", prefix = "df_mds") {
   mds_data <- plotMDS(df, ndim = max(unlist(dimensions_list)))
-  
+
   mds_data <- data.frame(
     mds_data$cmdscale.out[, seq_len(max(unlist(dimensions_list)))],
     samples = metadata$sample_id,
@@ -401,17 +353,17 @@ create_mds_plots2 <- function(df, metadata, dimensions_list, output_dir = "doc",
     intervention = metadata$intervention,
     batch = metadata$batch
   )
-  
+
   colnames(mds_data)[1:max(unlist(dimensions_list))] <- paste0("dim", 1:max(unlist(dimensions_list)))
-  
+
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
   }
-  
+
   for (dims in dimensions_list) {
     dim_x <- paste0("dim", dims[1])
     dim_y <- paste0("dim", dims[2])
-    
+
     plot <- ggplot(mds_data, aes_string(x = dim_x, y = dim_y, colour = "area", shape = "batch")) +
       geom_point(size = 4) +
       labs(title = paste(prefix, paste(dim_x, dim_y, sep = "_"), sep = "_"), colour = "area") +
@@ -419,17 +371,17 @@ create_mds_plots2 <- function(df, metadata, dimensions_list, output_dir = "doc",
       scale_colour_manual(values = c("CA1" = "#fa7876",
                                      "CA3" = "#edd9a3",
                                      "DG" = "#cc79a7"))
-    
+
     # Save plot
     output_path <- file.path(output_dir, paste0(prefix, "_", dim_x, "_", dim_y, "_batch.pdf"))
     ggsave(output_path, plot = plot, device = "pdf")
   }
-  
+
   # Additional plots for intervention
   for (dims in dimensions_list) {
     dim_x <- paste0("dim", dims[1])
     dim_y <- paste0("dim", dims[2])
-    
+
     plot <- ggplot(mds_data, aes_string(x = dim_x, y = dim_y, colour = "area", shape = "intervention")) +
       geom_point(size = 4) +
       labs(title = paste(prefix, paste(dim_x, dim_y, "intervention", sep = "_"), sep = "_"), colour = "area") +
@@ -437,7 +389,7 @@ create_mds_plots2 <- function(df, metadata, dimensions_list, output_dir = "doc",
       scale_colour_manual(values = c("CA1" = "#fa7876",
                                      "CA3" = "#edd9a3",
                                      "DG" = "#cc79a7"))
-    
+
     # Save plot
     output_path <- file.path(output_dir, paste0(prefix, "_", dim_x, "_", dim_y, "_intervention.pdf"))
     ggsave(output_path, plot = plot, device = "pdf")
@@ -450,7 +402,7 @@ z_score_by_median <- function(df) {
   df %>%
     as.data.frame() %>%
     mutate(across(everything(), ~ scale(.x, center = median(.x, na.rm = TRUE), scale = T) %>%
-                    as.numeric())) %>% 
+                    as.numeric())) %>%
     mutate(protein = rownames(.))
 }
 
@@ -460,7 +412,7 @@ z_score_by_median <- function(df) {
 barplot_validcounts <- function(df, metadata) {
   # Calculate number of valid (non-NA) values per column
   counts_valid <- colSums(!is.na(df))
-  
+
   # Create a dataframe with valid counts and metadata
   df_valid <- tibble(
     counts_valid = counts_valid,
@@ -471,29 +423,29 @@ barplot_validcounts <- function(df, metadata) {
       sampleid = factor(sampleid, levels = unique(sampleid[order(metadata$area)])),
       group = factor(area, levels = unique(area))
     )
-  
+
   # Define cutoff values for each area
   thresholds <- tibble(
     area = c("CA1", "CA3", "DG"),
     #cutoff = c(3982, 4028, 4065) #male
     cutoff = c(3471, 3570, 3997) #female
   )
-  
+
   # Create the bar plot
   ggplot(df_valid, aes(x = sampleid, y = counts_valid, fill = area)) +
     geom_col() +
-    scale_fill_manual(values = c("CA1" = "#fa7876", 
-                                 "CA3" = "#edd9a3", 
+    scale_fill_manual(values = c("CA1" = "#fa7876",
+                                 "CA3" = "#edd9a3",
                                  "DG" = "#ca3c97")) +
     scale_x_discrete(labels = df_valid$sampleid) +
     theme_minimal() +
-    geom_hline(data = thresholds, aes(yintercept = cutoff, color = area), 
+    geom_hline(data = thresholds, aes(yintercept = cutoff, color = area),
                linetype = "dashed", size = 0.5) +
-    scale_color_manual(values = c("CA1" = "black", 
-                                  "CA3" = "black", 
+    scale_color_manual(values = c("CA1" = "black",
+                                  "CA3" = "black",
                                   "DG" = "black")) +
     labs(x = "Sample", y = "Valid Counts", fill = "area", color = "Cutoff") +
-    theme(axis.text.x = element_text(angle = 45, hjust = 1)) + 
+    theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
     facet_grid(~ area, scales = "free_x", space = "free_x") +
     scale_x_discrete(labels = function(x) ifelse(df_valid$area[match(x, df_valid$sampleid)] == unique(df_valid$area), x, ""))
 }
