@@ -80,32 +80,32 @@ write.csv(df_ca1, file = "data/df_ca1_spec.csv", row.names = T, quote = F)
 
 
 ##### CA3 ######
-## 4969 proteins spectronaut >> 4508 diann
+## 5872 proteins spectronaut >> 4508 diann
 
 
-df_ca3 <- read.delim("data-raw/diann_new/ffmd_ca3_diann_report.pg_matrix.tsv",
+df_ca3 <- read.delim("data-raw/20250219_081114_ext_ca3_Report.tsv",
                      header = T, check.names = T, sep = "\t") %>%
-  dplyr::select("Protein.Group", "Genes", 5:15)
+  dplyr::select("PG.ProteinGroups", "PG.Genes", 6:20)
 
 #df_ca3 <- read.delim("data-raw/newquant_beast/20241127_081037_20240209_Report_ffmd_male_ca3.tsv",
 #                 header = T, check.names = T, sep = "\t") %>%
-#  dplyr::select("PG.ProteinGroups", "PG.Genes", 5:15)
+#  dplyr::select("Protein.Group", "Genes",  5:15)
 
-new_colnames <- sapply(strsplit(colnames(df_ca3), "_"), '[',13)
+new_colnames <- sapply(strsplit(colnames(df_ca3), "_"), '[',10)
 colnames(df_ca3) <- new_colnames
 
 colnames(df_ca3)[1] <- "protein_names"
 colnames(df_ca3)[2] <- "genes"
 names(df_ca3)
 
-table(df_ca3$genes == "") #7 in ca3
+table(df_ca3$genes == "") #19 in ca3
 #any(!duplicated(df_ca3$genes))
 #remove_rows <- df_ca3[duplicated(df_ca3$genes),] #check protein IDs in uniprot
 
 df_ca3 <- df_ca3 %>%
   mutate(genes = ifelse(genes == "", protein_names, genes)) %>%
   mutate_all(~ifelse(is.nan(.), NA, .)) %>%
-  mutate_at(3:13, as.numeric) %>%
+  mutate_at(3:17, as.numeric) %>%
   mutate(genes = make.names(genes, unique = TRUE)) %>%
   column_to_rownames(var = "genes") %>%
   dplyr::select(-protein_names) %>%
@@ -116,31 +116,31 @@ sample_order <- metadata_ca3$sample_id
 df_ca3 <- df_ca3[ ,sample_order]
 
 #save data
-save(df_ca3, file = "data/df_ca3_diann_crn.RData")
-write.csv(df_ca3, file = "data/df_ca3_diann_crn.csv", row.names = T, quote = F)
+save(df_ca3, file = "data/df_ca3_spec.RData")
+write.csv(df_ca3, file = "data/df_ca3_spec.csv", row.names = T, quote = F)
 
 
 
 ###### DG ######
-## 4840 proteins spectronaut >> diann
+## 5449 proteins spectronaut >> diann
 
-df_dg <- read.delim("data-raw/diann_new/ffmd_dg_diann_report.pg_matrix.tsv",
+df_dg <- read.delim("data-raw/20250219_131121_20231012_ext_dg_Report.tsv",
                      header = T, check.names = T, sep = "\t") %>%
-  dplyr::select("Protein.Group", "Genes", 5:13)
+  dplyr::select("PG.ProteinGroups", "PG.Genes", 6:20)
 
 
 #df_dg <- read.delim("data-raw/newquant_beast/20241129_132650_29112024_ffmd_male_dg_Report.tsv",
 #                 header = T, check.names = T, sep = "\t") %>%
 #    dplyr::select("PG.ProteinGroups", "PG.Genes", 5:13)
 
-new_colnames <- sapply(strsplit(colnames(df_dg), "_"), '[',13)
+new_colnames <- sapply(strsplit(colnames(df_dg), "_"), '[',10)
 colnames(df_dg) <- new_colnames
 
 colnames(df_dg)[1] <- "protein_names"
 colnames(df_dg)[2] <- "genes"
 names(df_dg)
 
-table(df_dg$genes == "") #11 in dg
+table(df_dg$genes == "") #14 in dg
 #any(!duplicated(df_dg$genes))
 #remove_rows <- df_dg[duplicated(df_dg$genes),] #check protein IDs in uniprot
 
@@ -159,8 +159,8 @@ sample_order <- metadata_dg$sample_id
 df_dg <- df_dg[ ,sample_order]
 
 #save data
-save(df_dg, file = "data/df_dg_diann_crn.RData")
-write.csv(df_dg, file = "data/df_dg_diann_crn.csv", row.names = T, quote = F)
+save(df_dg, file = "data/df_dg_spec.RData")
+write.csv(df_dg, file = "data/df_dg_spec.csv", row.names = T, quote = F)
 
 
 
@@ -184,11 +184,11 @@ ggsave("docs/ca1_boxplot.pdf")
 
 p <- create_boxplot(df_ca3, metadata_ca3)
 p + ggtitle("ca3_boxplot")
-ggsave("docs/ca3_diann_boxplot.pdf")
+ggsave("docs/ca3_boxplot.pdf")
 
 p <- create_boxplot(df_dg, metadata_dg)
 p + ggtitle("dg_boxplot")
-ggsave("docs/dg_diann_boxplot.pdf")
+ggsave("docs/dg_boxplot.pdf")
 
 
 ##density
@@ -232,13 +232,13 @@ ggplot(df_log10,
 
 # filter each data separately  --------------------------------------------
 ## min 3 samples per ffmd and lfd
-df_ca1_f <- selectGrps(df_ca1, metadata_ca1$intervention, n=1, 0.50) #4102 proteins >> 3982 diann
-df_ca3_f <- selectGrps(df_ca3, metadata_ca3$intervention, n=1, 0.60) #4309 proteins >> 4028 diann
-df_dg_f <- selectGrps(df_dg, metadata_dg$intervention, n=1, 0.75) #4394 proteins >> 4065 diann
+df_ca1_f <- selectGrps(df_ca1, metadata_ca1$group, n=1, 0.50) #5316 proteins >> 5091 diann
+df_ca3_f <- selectGrps(df_ca3, metadata_ca3$group, n=1, 0.50) #5872 proteins >> 5522 diann
+df_dg_f <- selectGrps(df_dg, metadata_dg$group, n=1, 0.43) #5449 proteins >> 5384 diann
 
-save(df_ca1_f, file = "data/df_ca1_filt_diann.RData")
-save(df_ca3_f, file = "data/df_ca3_filt_diann.RData")
-save(df_dg_f, file = "data/df_dg_filt_diann.RData")
+save(df_ca1_f, file = "data/df_ca1_f.RData")
+save(df_ca3_f, file = "data/df_ca3_f.RData")
+save(df_dg_f, file = "data/df_dg_f.RData")
 
 
 
@@ -256,7 +256,7 @@ datasets <- list(ca1 = df_ca1_f,
 df_fz <- map(datasets, z_score_by_median)
 
 df_fz <- reduce(df_fz, function(x, y) merge(x, y, by = "protein", all = TRUE)) #individually z-scored data and merged together
-#5175 proteins - filtered beast >> 4804 filtered diann
+#6319 proteins - filtered beast >> 4804 filtered diann
 
 
 
@@ -264,29 +264,29 @@ df_fz <- reduce(df_fz, function(x, y) merge(x, y, by = "protein", all = TRUE)) #
 df_fz <- df_fz %>%
   column_to_rownames(., var = "protein")
 
-sample_order <- metadata_m$sample_id
+sample_order <- metadata$sample_id
 df_fz <- df_fz[ ,sample_order]
 
 #save data
-save(df_fz, file = "data/df_all_fz_diann.RData")
-write_xlsx(df_fz, "data/df_all_fz_diann.xlsx")
+save(df_fz, file = "data/df_all_fz.RData")
+write_xlsx(df_fz, "data/df_all_fz.xlsx")
 
 
 #plot
-p <- plot_hipp_proteins(df_fz, metadata_m)
+p <- plot_hipp_proteins(df_fz, metadata)
 
 p$plot + ggtitle("df_fz_areaspecific_proteins")
-ggsave("doc/df_all_fz_areaspecific_proteins_diann.pdf")
+ggsave("docs/df_all_fz_areaspecific_proteins.pdf")
 
 
 
 # data vis of filtered and zscored data -----------------------------------
 
-create_boxplot(df_fz, metadata_m)
-ggsave(file = "doc/df_fz_boxplot_allareas_diann.pdf", width=10, height = 8)
+create_boxplot(df_fz, metadata)
+ggsave(file = "docs/df_fz_boxplot_allareas.pdf", width=10, height = 8)
 
 
-pdf("doc/df_fz_density_allareas_diann.pdf", width=10, height = 8)
+pdf("docs/df_fz_density_allareas.pdf", width=10, height = 8)
 plotDensities(df_fz) # looks good
 dev.off()
 
@@ -307,16 +307,15 @@ df_fz_ca1 <- df_fz %>%
 #batch corr
 ca1_batchcorr <- limma::removeBatchEffect(df_fz_ca1, batch = metadata_ca1$batch)
 
-mds_data <- plotMDS(df_ca1, dim.plot = c(1,2))
+mds_data <- plotMDS(df_fz_ca1, dim.plot = c(1,2))
 
 mds_data <- data.frame(dim1 = mds_data$x, dim2 = mds_data$y,
                        samples = metadata_ca1$sample_id,
                        area = metadata_ca1$area,
-                       intervention = metadata_ca1$intervention,
-                       batch = metadata_ca1$batch)
+                       group = metadata_ca1$group)
 
 ggplot(mds_data,
-       aes(x = dim1, y = dim2, colour = area, shape = batch)) +
+       aes(x = dim1, y = dim2, colour = area, shape = group)) +
   geom_point(size = 4) +
   labs(title = "df_ca1_mds", colour = "area") +
   theme_minimal() +
@@ -324,10 +323,9 @@ ggplot(mds_data,
                                  "CA3" = "#edd9a3",
                                  "DG" = "#cc79a7"))
 
-ggsave("doc/df_ca1_fz_mds_diann.pdf")
+ggsave("docs/df_ca1_fz_mds.pdf")
 
-
-save(df_fz_ca1, file = "df_fz_ca1_diann.RData")
+save(df_fz_ca1, file = "df_fz_ca1.RData")
 
 ### CA3 #####
 df_fz_ca3 <- df_fz %>%
@@ -338,6 +336,7 @@ df_fz_ca3 <- df_fz %>%
   ungroup() %>%
   column_to_rownames(var = "protein")
 
+
 #batch corr
 ca3_batchcorr <- limma::removeBatchEffect(df_fz_ca3, batch = metadata_ca3$batch)
 
@@ -346,11 +345,10 @@ mds_data <- plotMDS(df_fz_ca3, dim.plot = c(1,2))
 mds_data <- data.frame(dim1 = mds_data$x, dim2 = mds_data$y,
                        samples = metadata_ca3$sample_id,
                        area = metadata_ca3$area,
-                       intervention = metadata_ca3$intervention,
-                       batch = metadata_ca3$batch)
+                       group = metadata_ca3$group)
 
 ggplot(mds_data,
-       aes(x = dim1, y = dim2, colour = area, shape = batch)) +
+       aes(x = dim1, y = dim2, colour = area, shape = group)) +
   geom_point(size = 4) +
   labs(title = "df_ca3_mds", colour = "area") +
   theme_minimal() +
@@ -358,9 +356,9 @@ ggplot(mds_data,
                                  "CA3" = "#edd9a3",
                                  "DG" = "#cc79a7"))
 
-ggsave("doc/df_ca3_fz_mds_diann.pdf")
+ggsave("docs/df_ca3_fz_mds.pdf")
 
-save(df_fz_ca3, file = "df_fz_ca3_diann.RData")
+save(df_fz_ca3, file = "df_fz_ca3.RData")
 
 ### DG #####
 df_fz_dg <- df_fz %>%
@@ -379,11 +377,10 @@ mds_data <- plotMDS(df_fz_dg, dim.plot = c(1,2))
 mds_data <- data.frame(dim1 = mds_data$x, dim2 = mds_data$y,
                        samples = metadata_dg$sample_id,
                        area = metadata_dg$area,
-                       intervention = metadata_dg$intervention,
-                       batch = metadata_dg$batch)
+                       group = metadata_dg$group)
 
 ggplot(mds_data,
-       aes(x = dim1, y = dim2, colour = area, shape = batch)) +
+       aes(x = dim1, y = dim2, colour = area, shape = group)) +
   geom_point(size = 4) +
   labs(title = "df_dg_mds", colour = "area") +
   theme_minimal() +
@@ -391,9 +388,9 @@ ggplot(mds_data,
                                  "CA3" = "#edd9a3",
                                  "DG" = "#cc79a7"))
 
-ggsave("doc/df_dg_fz_mds_diann.pdf")
+ggsave("docs/df_dg_fz_mds.pdf")
 
-save(df_fz_dg, file = "df_fz_dg_diann.RData")
+save(df_fz_dg, file = "df_fz_dg.RData")
 
 
 
@@ -403,18 +400,19 @@ save(df_fz_dg, file = "df_fz_dg_diann.RData")
 mds_data <- plotMDS(df_fz, dim.plot = c(1,2))
 
 mds_data = data.frame(dim1 = mds_data$x, dim2 = mds_data$y,
-                      samples = metadata_m$sample_id,
-                      area = metadata_m$area,
-                      intervention = metadata_m$intervention,
-                      batch = metadata_m$batch,
-                      sex = metadata_m$sex,
-                      cryo_date = metadata_m$cryostat_date,
-                      lcm_date = metadata_m$lcm_date,
-                      duration_frozen_tissue = metadata_m$freezing__tissue_post_termination,
-                      duration_frozen_section = metadata_m$freezing_sections,
-                      duration_frozen_postlcm = metadata_m$freezing_post_lcm)
+                      samples = metadata$sample_id,
+                      area = metadata$area,
+                      group = metadata$group,
+                      termination_date = metadata$termination_date,
+                      termination_batch = metadata$termination_batch,
+                      sampleprep_date = metadata$sampleprep_date,
+                      sampleprep_batch = metadata$sampleprep_batch,
+                      cryo_date = metadata$cryo_date,
+                      lcm_date = metadata$lcm_date,
+                      duration_frozen_tissue = metadata$duration_frozen_slide,
+                      duration_frozen_lcmtissue = metadata$duration_frozen_lcmtissue)
 
-create_mds_plots(mds_data, metadata_m)
+create_mds_plots(mds_data, metadata)
 
 
 
